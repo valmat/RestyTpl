@@ -20,7 +20,6 @@ struct View
 private:
     LuaFunction _view;
 public:
-
     this(LuaFunction view) //nothrow
     {
         _view = view;

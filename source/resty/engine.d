@@ -17,48 +17,73 @@ import luad.conversions.functions;
 
 import resty.view;
 
+struct RestyOptons
+{
+    // Is safe templates
+    bool isSafe = true;
+    
+    // Do cache compiled templates
+    bool cache  = false;
+
+    // If true, will precompile from tplDir and store to cplDir
+    bool precomple = false;
+
+    // if true will check if file was changed and recompile if necessary
+    bool checkChanges = false;
+
+    // if setted will add as prefix to filepath
+    string tplDir;
+
+    // if setted and `precomple = true` will store precompiled files
+    string cplDir;
+
+    // if setted will use this
+    string resty_lua_lib;
+}
 
 class Resty
 {
-//private:
-public:
+protected:
     LuaState _lua;
-    LuaFunction _compiler;
+    IRestyCompiler _compiler;
 
 public:
 
-    this()
+    this(in RestyOptons opts = RestyOptons())
     {
         _lua = new LuaState;
         _lua.openLibs();
         enum libSrc = import("deps/resty.p.luac");
-        _lua["template"] = _lua.loadBuffer(libSrc)(true).front;
-        
-        //_lua.doString(`
-        //    print(template, "<---")
-        //    print(template.render, "<---")
-        //    for key,value in pairs(template) 
-        //    do
-        //       print(key, value)
-        //    end
-        //`);
-        //auto render = _lua.loadBuffer(`return template.render`)().front;
-        //render.writeln(" :: template.render");
-        //pragma(msg,"type render ", typeof(render));
-        //_lua.doString(`
-        //    template.render([[
-        //    <!DOCTYPE html>
-        //    <html>
-        //    <body>
-        //      <h1>{{message}}</h1>
-        //    </body>
-        //    </html>
-        //]], { message = "Hello, World!" })`); 
-        //auto compile = _lua.loadBuffer(`return template.compile`)().front;
-        //compile.writeln(" :: template.compile");
-        //pragma(msg,"type compile ", typeof(compile));
+        _lua["template"] = opts.resty_lua_lib.length ?
+            _lua.loadFile(opts.resty_lua_lib)(opts.isSafe).front :
+            _lua.loadBuffer(import("deps/resty.p.luac"))(opts.isSafe).front;
 
-        _compiler = _lua.loadBuffer(`return template.compile`)().front().fun();
+        LuaFunction fun_compiler = _lua.loadBuffer(`return template.compile`)().front().fun();
+        
+        _compiler = new SimpleCompiler(fun_compiler);
+    }
+
+    // TODO : add const
+    View compile(string tpl)
+    {
+        return _compiler.compile(tpl);
+    }
+}
+
+interface IRestyCompiler
+{
+    View compile(string tpl);
+}
+
+final class SimpleCompiler : IRestyCompiler
+{
+private:
+    LuaFunction _compiler;
+
+public:
+    this(LuaFunction compiler)
+    {
+        _compiler = compiler;
     }
 
     View compile(string tpl)
