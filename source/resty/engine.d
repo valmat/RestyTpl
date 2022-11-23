@@ -9,7 +9,7 @@ import std.typecons;
 import std.string;
 import std.traits;
 import std.math;
-import std.file : timeLastModified;
+import std.file : timeLastModified, exists;
 import std.stdint : uint32_t;
 
 import luad.all;
@@ -43,12 +43,17 @@ struct RestyOptons
     string resty_lua_lib;
 }
 
-class Resty
+final class Resty
 {
-protected:
+private:
     LuaState _lua;
     LuaFunction _str_compiler;
     IRestyCompiler _compiler;
+    // if setted will add as prefix to filepath
+    string _tplDir;
+    // if setted and `precomple = true` will store precompiled files
+    string _cplDir;
+
 
 public:
 
@@ -62,6 +67,9 @@ public:
             _lua.loadFile(opts.resty_lua_lib)(opts.isSafe).front :
             _lua.loadBuffer(import("deps/resty.p.luac"))(opts.isSafe).front;
 
+        _tplDir = opts.tplDir.fixDir();
+        _cplDir = opts.cplDir.fixDir();
+
         _str_compiler = _lua.loadBuffer(`return template.compile`)().front().fun();
         LuaFunction file_compiler = _lua.loadBuffer(`return template.compile_file`)().front().fun();
         
@@ -73,13 +81,17 @@ public:
     // TODO : add const
     View compileFile(string fileName)
     {
-        return _compiler.compile(fileName);
+        return _tplDir.length ?
+            _compiler.compile(_tplDir ~ fileName) :
+            _compiler.compile(fileName);
     }
     View compile(string tpl)
     {
         return View(_str_compiler(tpl).front().fun());
     }
 }
+
+private:
 
 interface IRestyCompiler
 {
@@ -103,7 +115,119 @@ public:
     }
 }
 
-final class CacheCompiler : IRestyCompiler
+class PrecompCompiler : IRestyCompiler
+{
+protected:
+    LuaFunction _compiler;
+    string _tplDir;
+    string _cplDir;
+    string _cplSfx;
+
+public:
+    this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
+    {
+        _compiler = compiler;
+        _cplSfx   = (tplDir == cplDir) ? cplSfx : [];
+    }
+
+    View compile(string fileName)
+    {
+        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
+        if(cplName.exists) {
+            return View(_compiler(cplName).front().fun());
+        }
+        auto view = View(_compiler(fileName).front().fun());
+        view.dump(cplName);
+        return view;
+    }
+}
+
+final class PrecompCacheCompiler : PrecompCompiler
+{
+private:
+    View[string] _cache;
+
+public:
+    this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
+    {
+        super(compiler, tplDir, cplDir, cplSfx);
+    }
+
+    override View compile(string fileName)
+    {
+        string key = fileName[_tplDir.length .. $];
+        auto vp = key in _cache;
+        if(vp is null) {
+            string cplName = _cplDir ~ key ~ _cplSfx;
+
+            View view;
+            if(!cplName.exists) {
+                view = View(_compiler(fileName).front().fun());
+                view.dump(cplName);
+            } else {
+                view = View(_compiler(cplName).front().fun());
+            }
+
+            _cache[key] = view;
+            return view;
+        }
+        return *vp;
+    }
+}
+
+// With check changes
+final class PrecompCacheChChCompiler : PrecompCompiler
+{
+private:
+    TimedView[string] _cache;
+
+public:
+    this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
+    {
+        super(compiler, tplDir, cplDir, cplSfx);
+    }
+
+    override View compile(string fileName)
+    {
+        uint32_t lm = lmFileTime(fileName);
+        string key = fileName[_tplDir.length .. $];
+        auto vp = key in _cache;
+
+        if((vp is null) || ((*vp).lm < lm)) {
+            string cplName = _cplDir ~ key ~ _cplSfx;
+
+            View view;
+            if(!cplName.exists || ((vp !is null) && ((*vp).lm < lm))  ) {
+                view = View(_compiler(fileName).front().fun());
+                view.dump(cplName);
+            } else {
+                view = View(_compiler(cplName).front().fun());
+            }
+
+            _cache[key] = TimedView(view, lm);
+            return view;
+        }
+        return (*vp).view;
+    }
+}
+
+struct CacheCheck
+{
+    View view;
+    bool changed = false;
+}
+struct TimedView
+{
+    View view;
+    uint32_t lm;
+}
+
+interface ICacheCompiler
+{
+    CacheCheck compile(string fileName);
+}
+
+final class CacheCompiler : ICacheCompiler
 {
 private:
     LuaFunction _compiler;
@@ -115,30 +239,24 @@ public:
         _compiler = compiler;
     }
 
-    View compile(string fileName)
+    CacheCheck compile(string fileName)
     {
         auto vp = fileName in _cache;
         if(vp is null) {
-            auto res = View(_compiler(fileName).front().fun());
-            _cache[fileName] = res;
-            return res;
+            auto view = View(_compiler(fileName).front().fun());
+            _cache[fileName] = view;
+            return CacheCheck(view, true);
         }
-        return *vp;
+        return CacheCheck(*vp);
     }
 }
 
 // With check changes
-final class CacheChChCompiler : IRestyCompiler
+final class CacheChChCompiler : ICacheCompiler
 {
 private:
-    static struct CacheUnit
-    {
-        View view;
-        uint32_t lm;
-    }
-
     LuaFunction _compiler;
-    CacheUnit[string] _cache;
+    TimedView[string] _cache;
 
 public:
     this(LuaFunction compiler)
@@ -146,16 +264,16 @@ public:
         _compiler = compiler;
     }
 
-    View compile(string fileName)
+    CacheCheck compile(string fileName)
     {
         uint32_t lm = lmFileTime(fileName);
         auto vp = fileName in _cache;
         if((vp is null) || ((*vp).lm < lm)) {
-            auto res = View(_compiler(fileName).front().fun());
-            _cache[fileName] = CacheUnit(res, lm);
-            return res;
+            auto view = View(_compiler(fileName).front().fun());
+            _cache[fileName] = TimedView(view, lm);
+            return CacheCheck(view, true);
         }
-        return (*vp).view;
+        return CacheCheck((*vp).view);
     }
 }
 
@@ -163,4 +281,11 @@ private:
 uint32_t lmFileTime(string fileName)
 {
     return (fileName.timeLastModified.stdTime - uint32_t.max) & size_t(uint32_t.max);
+}
+string fixDir(string dirName) pure nothrow
+{
+    if(!dirName.length || dirName[$-1] == '/') {
+        return dirName;
+    }
+    return dirName ~ '/';
 }

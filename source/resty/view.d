@@ -25,9 +25,14 @@ public:
         _view = view;
     }
 
-    string opCall(U...)(U args)
+    string opCall(Args...)(Args args)
     {
         return _view.call!string(args);
     }
     alias call = opCall;
+
+    auto dump(Args...)(Args args)
+    {
+        return _view.dump(args);
+    }
 }
