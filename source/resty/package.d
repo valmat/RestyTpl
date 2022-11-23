@@ -1,6 +1,6 @@
 module resty;
 
-//public import resty.utils;
+public import resty.engine;
 
 // test:
 // cd source
