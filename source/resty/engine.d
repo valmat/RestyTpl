@@ -9,6 +9,8 @@ import std.typecons;
 import std.string;
 import std.traits;
 import std.math;
+import std.file : timeLastModified;
+import std.stdint : uint32_t;
 
 import luad.all;
 import luad.lmodule;
@@ -77,11 +79,6 @@ public:
     {
         return View(_str_compiler(tpl).front().fun());
     }
-
-    void setCompiler(IRestyCompiler compiler)
-    {
-        _compiler = compiler;
-    }
 }
 
 interface IRestyCompiler
@@ -128,4 +125,42 @@ public:
         }
         return *vp;
     }
+}
+
+// With check changes
+final class CacheChChCompiler : IRestyCompiler
+{
+private:
+    static struct CacheUnit
+    {
+        View view;
+        uint32_t lm;
+    }
+
+    LuaFunction _compiler;
+    CacheUnit[string] _cache;
+
+public:
+    this(LuaFunction compiler)
+    {
+        _compiler = compiler;
+    }
+
+    View compile(string fileName)
+    {
+        uint32_t lm = lmFileTime(fileName);
+        auto vp = fileName in _cache;
+        if((vp is null) || ((*vp).lm < lm)) {
+            auto res = View(_compiler(fileName).front().fun());
+            _cache[fileName] = CacheUnit(res, lm);
+            return res;
+        }
+        return (*vp).view;
+    }
+}
+
+private:
+uint32_t lmFileTime(string fileName)
+{
+    return (fileName.timeLastModified.stdTime - uint32_t.max) & size_t(uint32_t.max);
 }
