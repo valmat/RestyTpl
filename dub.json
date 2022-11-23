@@ -1,8 +1,8 @@
 {
-	"name": "RestyTpl",
+	"name": "resty",
 	"description": "Dlang port of Resty-LUA template engine",
     "authors": ["Valmat"],
-    "homepage": "https://github.com/valmat/restytpl",
+    "homepage": "https://github.com/valmat/resty",
     "license": "MIT",
 	"dependencies": {
 		"luad": "~master"
