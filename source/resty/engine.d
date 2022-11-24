@@ -12,6 +12,10 @@ import std.math;
 import std.file : timeLastModified, exists;
 import std.stdint : uint32_t;
 
+import std.traits  : isIntegral, isSomeChar, isBoolean;
+import std.meta    : allSatisfy;
+
+
 import luad.all;
 import luad.lmodule;
 import luad.lfunction;
@@ -43,39 +47,6 @@ struct RestyOptons
     string resty_lua_lib;
 }
 
-/*///////////////////////////////////////////
-// Precompiles templates stores them to cplDir and caches result to internal memory
-// With check source file changes
-// +cache & +precomple & +checkChanges
-RestyCachePrecmpCkChngCompiler
-
-// Precompiles templates stores them to cplDir and caches result to internal memory
-// +cache & +precomple & -checkChanges
-RestyCachePrecmpCompiler
-
-// Compiles templates and caches result to internal memory
-// With check source file changes
-// +cache & -precomple & +checkChanges
-RestyCacheCkChngCompiler
-
-// Just compiles templates and caches result to internal memory
-// +cache & -precomple & -checkChanges
-RestyCacheCompiler
-
-// Precompiles templates and stores them to cplDir
-// With check source file changes
-// -cache & +precomple & +checkChanges
-RestyPrecmpCkChngCompiler
-
-// Precompiles templates and stores them to cplDir
-// -cache & +precomple & -checkChanges
-RestyPrecmpCompiler
-
-// Just compiles template. Nothing else.
-// -cache & -precomple & +-checkChanges
-RestyCompiler
-///////////////////////////////////////////*/
-
 final class Resty
 {
 private:
@@ -106,15 +77,52 @@ public:
         _str_compiler = _lua.loadBuffer(`return template.compile`)().front().fun();
         LuaFunction file_compiler = _lua.loadBuffer(`return template.compile_file`)().front().fun();
         
-        _compiler = opts.cache ?
-            cast(IRestyCompiler)(new RestyCacheCompiler(file_compiler)) :
-            cast(IRestyCompiler)(new RestyCompiler(file_compiler));
+        switch(codeBools(opts.cache, opts.precomple, opts.checkChanges)) {
+            // Precompiles templates stores them to cplDir and caches result to internal memory
+            // With check source file changes
+            // +cache & +precomple & +checkChanges
+            case 0b111:
+                _compiler = new RestyCachePrecmpCkChngCompiler(file_compiler, _tplDir, _cplDir);
+            break;
 
-    //cache
-    //precomple
-    //checkChanges
+            // Precompiles templates stores them to cplDir and caches result to internal memory
+            // +cache & +precomple & -checkChanges
+            case 0b110:
+                _compiler = new RestyCachePrecmpCompiler(file_compiler, _tplDir, _cplDir);
+            break;
 
+            // Compiles templates and caches result to internal memory
+            // With check source file changes
+            // +cache & -precomple & +checkChanges
+            case 0b101:
+                _compiler = new RestyCacheCkChngCompiler(file_compiler);
+            break;
 
+            // Just compiles templates and caches result to internal memory
+            // +cache & -precomple & -checkChanges
+            case 0b100:
+                _compiler = new RestyCacheCompiler(file_compiler);
+            break;
+
+            // Precompiles templates and stores them to cplDir
+            // With check source file changes
+            // -cache & +precomple & +checkChanges
+            case 0b011:
+                _compiler = new RestyPrecmpCkChngCompiler(file_compiler, _tplDir, _cplDir);
+            break;
+
+            // Precompiles templates and stores them to cplDir
+            // -cache & +precomple & -checkChanges
+            case 0b010:
+                _compiler = new RestyPrecmpCompiler(file_compiler, _tplDir, _cplDir);
+            break;
+
+            // Just compiles template. Nothing else.
+            // -cache & -precomple & +-checkChanges
+            default:
+                _compiler = new RestyCompiler(file_compiler);
+            break;
+        }        
     }
 
     // TODO : add const
@@ -131,6 +139,27 @@ public:
 }
 
 private:
+
+auto codeBools(Args...)(Args args) @nogc pure nothrow
+    if(allSatisfy!(isBoolean, Args))
+{
+    static if(Args.length <= 8) {
+        alias ret_t = ubyte;
+    } else static if(Args.length <= 16) {
+        alias ret_t = ushort;
+    } else static if(Args.length <= 32) {
+        alias ret_t = uint;
+    } else {
+        alias ret_t = ulong;
+    }
+    ret_t res = 0;
+    static foreach(size_t i; 0 .. Args.length) {
+        res |= args[i] ? (1 << (Args.length - i - 1)) : 0;
+    }
+
+    return res;
+}
+
 
 interface IRestyCompiler
 {

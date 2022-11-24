@@ -59,12 +59,13 @@ const(char)[11] threadHash() nothrow
     return fastHash( size_t.max ^ ((procID << 46) | thrdID) );
 }
 
-//char[64] binstr(size_t val) @nogc pure nothrow
+//const(char)[T.sizeof * 8] binstr(T)(T val) @nogc pure nothrow
+//    if(isIntegral!T || isSomeChar!T)
 //{
-//    char[64] res;
+//    char[T.sizeof * 8] res;
 //    enum size_t one = 1;
-//    foreach(size_t i; 0 .. 64) {
-//        res[64 - i - 1] = (val & (one << i)) ? '1' : '0';
+//    foreach(size_t i; 0 .. T.sizeof * 8) {
+//        res[T.sizeof * 8 - i - 1] = (val & (one << i)) ? '1' : '0';
 //    }
 //    return res;
 //}
