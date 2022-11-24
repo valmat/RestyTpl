@@ -43,6 +43,39 @@ struct RestyOptons
     string resty_lua_lib;
 }
 
+////////////////////////////////////////////
+// Precompiles templates stores them to cplDir and caches result to internal memory
+// With check source file changes
+// +cache & +precomple & +checkChanges
+PrecompCacheChChCompiler
+
+// Precompiles templates stores them to cplDir and caches result to internal memory
+// +cache & +precomple & -checkChanges
+PrecompCacheCompiler
+
+// Compiles templates and caches result to internal memory
+// With check source file changes
+// +cache & -precomple & +checkChanges
+CacheChChCompiler
+
+// Just compiles templates and caches result to internal memory
+// +cache & -precomple & -checkChanges
+CacheCompiler
+
+
+// -cache & +precomple & +checkChanges
+
+
+// Precompiles templates and stores them to cplDir
+// -cache & +precomple & -checkChanges
+PrecompCompiler
+
+// Just compiles template. Nothing else.
+// -cache & -precomple & +-checkChanges
+SimpleCompiler
+
+////////////////////////////////////////////
+
 final class Resty
 {
 private:
@@ -76,6 +109,12 @@ public:
         _compiler = opts.cache ?
             cast(IRestyCompiler)(new CacheCompiler(file_compiler)) :
             cast(IRestyCompiler)(new SimpleCompiler(file_compiler));
+
+    //cache
+    //precomple
+    //checkChanges
+
+
     }
 
     // TODO : add const
@@ -98,26 +137,15 @@ interface IRestyCompiler
     View compile(string fileName);
 }
 
-final class SimpleCompiler : IRestyCompiler
+struct TimedView
 {
-private:
-    LuaFunction _compiler;
-
-public:
-    this(LuaFunction compiler)
-    {
-        _compiler = compiler;
-    }
-
-    View compile(string fileName)
-    {
-        return View(_compiler(fileName).front().fun());
-    }
+    View view;
+    uint32_t lm;
 }
 
-class PrecompCompiler : IRestyCompiler
+mixin template PrecompCompilerTrait()
 {
-protected:
+private:
     LuaFunction _compiler;
     string _tplDir;
     string _cplDir;
@@ -129,64 +157,18 @@ public:
         _compiler = compiler;
         _cplSfx   = (tplDir == cplDir) ? cplSfx : [];
     }
-
-    View compile(string fileName)
-    {
-        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
-        if(cplName.exists) {
-            return View(_compiler(cplName).front().fun());
-        }
-        auto view = View(_compiler(fileName).front().fun());
-        view.dump(cplName);
-        return view;
-    }
 }
 
-final class PrecompCacheCompiler : PrecompCompiler
-{
-private:
-    View[string] _cache;
 
-public:
-    this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
-    {
-        super(compiler, tplDir, cplDir, cplSfx);
-    }
-
-    override View compile(string fileName)
-    {
-        string key = fileName[_tplDir.length .. $];
-        auto vp = key in _cache;
-        if(vp is null) {
-            string cplName = _cplDir ~ key ~ _cplSfx;
-
-            View view;
-            if(!cplName.exists) {
-                view = View(_compiler(fileName).front().fun());
-                view.dump(cplName);
-            } else {
-                view = View(_compiler(cplName).front().fun());
-            }
-
-            _cache[key] = view;
-            return view;
-        }
-        return *vp;
-    }
-}
-
-// With check changes
-final class PrecompCacheChChCompiler : PrecompCompiler
+// Precompiles templates stores them to cplDir and caches result to internal memory
+// With check source file changes
+// +cache & +precomple & +checkChanges
+final class PrecompCacheChChCompiler : IRestyCompiler
 {
 private:
     TimedView[string] _cache;
-
+    mixin PrecompCompilerTrait;
 public:
-    this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
-    {
-        super(compiler, tplDir, cplDir, cplSfx);
-    }
-
     override View compile(string fileName)
     {
         uint32_t lm = lmFileTime(fileName);
@@ -211,23 +193,76 @@ public:
     }
 }
 
-struct CacheCheck
+// Precompiles templates stores them to cplDir and caches result to internal memory
+// +cache & +precomple & -checkChanges
+final class PrecompCacheCompiler : IRestyCompiler
 {
-    View view;
-    bool changed = false;
-}
-struct TimedView
-{
-    View view;
-    uint32_t lm;
+private:
+    View[string] _cache;
+    mixin PrecompCompilerTrait;
+public:
+
+    override View compile(string fileName)
+    {
+        string key = fileName[_tplDir.length .. $];
+        auto vp = key in _cache;
+        if(vp is null) {
+            string cplName = _cplDir ~ key ~ _cplSfx;
+
+            View view;
+            if(!cplName.exists) {
+                view = View(_compiler(fileName).front().fun());
+                view.dump(cplName);
+            } else {
+                view = View(_compiler(cplName).front().fun());
+            }
+
+            _cache[key] = view;
+            return view;
+        }
+        return *vp;
+    }
 }
 
-interface ICacheCompiler
+
+// Just compiles template. Nothing else.
+final class SimpleCompiler : IRestyCompiler
 {
-    CacheCheck compile(string fileName);
+private:
+    LuaFunction _compiler;
+
+public:
+    this(LuaFunction compiler)
+    {
+        _compiler = compiler;
+    }
+
+    View compile(string fileName)
+    {
+        return View(_compiler(fileName).front().fun());
+    }
 }
 
-final class CacheCompiler : ICacheCompiler
+// Precompiles templates and stores them to cplDir
+final class PrecompCompiler : IRestyCompiler
+{
+    mixin PrecompCompilerTrait;
+public:
+
+    View compile(string fileName)
+    {
+        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
+        if(cplName.exists) {
+            return View(_compiler(cplName).front().fun());
+        }
+        auto view = View(_compiler(fileName).front().fun());
+        view.dump(cplName);
+        return view;
+    }
+}
+
+// Just compiles templates and caches result to internal memory
+final class CacheCompiler : IRestyCompiler
 {
 private:
     LuaFunction _compiler;
@@ -239,20 +274,22 @@ public:
         _compiler = compiler;
     }
 
-    CacheCheck compile(string fileName)
+    View compile(string fileName)
     {
         auto vp = fileName in _cache;
         if(vp is null) {
             auto view = View(_compiler(fileName).front().fun());
             _cache[fileName] = view;
-            return CacheCheck(view, true);
+            return view;
         }
-        return CacheCheck(*vp);
+        return *vp;
     }
 }
 
-// With check changes
-final class CacheChChCompiler : ICacheCompiler
+
+// Compiles templates and caches result to internal memory
+// With check source file changes
+final class CacheChChCompiler : IRestyCompiler
 {
 private:
     LuaFunction _compiler;
@@ -264,16 +301,16 @@ public:
         _compiler = compiler;
     }
 
-    CacheCheck compile(string fileName)
+    View compile(string fileName)
     {
         uint32_t lm = lmFileTime(fileName);
         auto vp = fileName in _cache;
         if((vp is null) || ((*vp).lm < lm)) {
             auto view = View(_compiler(fileName).front().fun());
             _cache[fileName] = TimedView(view, lm);
-            return CacheCheck(view, true);
+            return view;
         }
-        return CacheCheck((*vp).view);
+        return (*vp).view;
     }
 }
 
