@@ -182,7 +182,7 @@ public:
             View view;
             if((lm_cpl < lm) || ((vp !is null) && ((*vp).lm < lm))  ) {
                 view = View(_compiler(fileName).front().fun());
-                view.dump(cplName);
+                view.dump_atomic(cplName);
             } else {
                 view = View(_compiler(cplName).front().fun());
             }
@@ -214,7 +214,7 @@ public:
             View view;
             if(!cplName.exists) {
                 view = View(_compiler(fileName).front().fun());
-                view.dump(cplName);
+                view.dump_atomic(cplName);
             } else {
                 view = View(_compiler(cplName).front().fun());
             }
@@ -297,7 +297,7 @@ public:
         uint32_t lm_cpl = cplName.exists ? lmFileTime(cplName) : 0;
         if(lm > lm_cpl) {
             auto view = View(_compiler(fileName).front().fun());
-            view.dump(cplName);
+            view.dump_atomic(cplName);
             return view;
         }
         return View(_compiler(cplName).front().fun());
@@ -318,7 +318,7 @@ public:
             return View(_compiler(cplName).front().fun());
         }
         auto view = View(_compiler(fileName).front().fun());
-        view.dump(cplName);
+        view.dump_atomic(cplName);
         return view;
     }
 }
