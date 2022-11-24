@@ -140,27 +140,6 @@ public:
 
 private:
 
-auto codeBools(Args...)(Args args) @nogc pure nothrow
-    if(allSatisfy!(isBoolean, Args))
-{
-    static if(Args.length <= 8) {
-        alias ret_t = ubyte;
-    } else static if(Args.length <= 16) {
-        alias ret_t = ushort;
-    } else static if(Args.length <= 32) {
-        alias ret_t = uint;
-    } else {
-        alias ret_t = ulong;
-    }
-    ret_t res = 0;
-    static foreach(size_t i; 0 .. Args.length) {
-        res |= args[i] ? (1 << (Args.length - i - 1)) : 0;
-    }
-
-    return res;
-}
-
-
 interface IRestyCompiler
 {
     View compile(string fileName);
@@ -169,7 +148,7 @@ interface IRestyCompiler
 struct TimedView
 {
     View view;
-    uint32_t lm;
+    size_t lm;
 }
 
 mixin template PrecompCompilerTrait()
@@ -184,10 +163,11 @@ public:
     this(LuaFunction compiler, string tplDir, string cplDir, string cplSfx = ".bin")
     {
         _compiler = compiler;
-        _cplSfx   = (tplDir == cplDir) ? cplSfx : [];
+        _tplDir   = tplDir;
+        _cplDir   = cplDir;
+        _cplSfx   = (tplDir.length || tplDir == cplDir) ? cplSfx : [];
     }
 }
-
 
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // With check source file changes
@@ -200,13 +180,13 @@ private:
 public:
     override View compile(string fileName)
     {
-        uint32_t lm  = lmFileTime(fileName);
-        string   key = fileName[_tplDir.length .. $];
-        auto     vp  = key in _cache;
+        auto   lm  = lmFileTime(fileName);
+        string key = fileName[_tplDir.length .. $];
+        auto   vp  = key in _cache;
 
         if((vp is null) || ((*vp).lm < lm)) {
             string cplName = _cplDir ~ key ~ _cplSfx;
-            uint32_t lm_cpl  = cplName.exists ? lmFileTime(cplName) : 0;
+            auto   lm_cpl  = cplName.exists ? lmFileTime(cplName) : 0;
 
             View view;
             if((lm_cpl < lm) || ((vp !is null) && ((*vp).lm < lm))  ) {
@@ -272,7 +252,7 @@ public:
 
     View compile(string fileName)
     {
-        uint32_t lm = lmFileTime(fileName);
+        auto lm = lmFileTime(fileName);
         auto vp = fileName in _cache;
         if((vp is null) || ((*vp).lm < lm)) {
             auto view = View(_compiler(fileName).front().fun());
@@ -322,8 +302,9 @@ public:
     View compile(string fileName)
     {
         string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
-        uint32_t lm     = lmFileTime(fileName);
-        uint32_t lm_cpl = cplName.exists ? lmFileTime(cplName) : 0;
+        auto lm     = lmFileTime(fileName);
+        auto lm_cpl = cplName.exists ? lmFileTime(cplName) : 0;
+
         if(lm > lm_cpl) {
             auto view = View(_compiler(fileName).front().fun());
             view.dump_atomic(cplName);
@@ -371,15 +352,10 @@ public:
     }
 }
 
-
-
-
-
-
 private:
-uint32_t lmFileTime(string fileName)
+size_t lmFileTime(string fileName)
 {
-    return (fileName.timeLastModified.stdTime - uint32_t.max) & size_t(uint32_t.max);
+    return fileName.timeLastModified.stdTime;
 }
 string fixDir(string dirName) pure nothrow
 {
@@ -387,4 +363,24 @@ string fixDir(string dirName) pure nothrow
         return dirName;
     }
     return dirName ~ '/';
+}
+
+auto codeBools(Args...)(Args args) @nogc pure nothrow
+    if(allSatisfy!(isBoolean, Args))
+{
+    static if(Args.length <= 8) {
+        alias ret_t = ubyte;
+    } else static if(Args.length <= 16) {
+        alias ret_t = ushort;
+    } else static if(Args.length <= 32) {
+        alias ret_t = uint;
+    } else {
+        alias ret_t = ulong;
+    }
+    ret_t res = 0;
+    static foreach(size_t i; 0 .. Args.length) {
+        res |= args[i] ? (1 << (Args.length - i - 1)) : 0;
+    }
+
+    return res;
 }

@@ -10,7 +10,8 @@ import std.string;
 import std.traits;
 import std.math;
 
-import std.file    : rename;
+import std.file    : rename, mkdir;
+import std.path    : dirName;
 import std.process : thisProcessID, thisThreadID;
 import std.traits  : isIntegral, isSomeChar;
 
@@ -40,6 +41,11 @@ public:
     {
         return _view.dump(args);
     }
+    void dump(string fileName)
+    {
+        fileName.dirName().mkdir();
+        return _view.dump(fileName);
+    }    
     void dump_atomic(string fileName)
     {
         const(char)[] tmp_name;
@@ -59,16 +65,6 @@ const(char)[11] threadHash() nothrow
     return fastHash( size_t.max ^ ((procID << 46) | thrdID) );
 }
 
-//const(char)[T.sizeof * 8] binstr(T)(T val) @nogc pure nothrow
-//    if(isIntegral!T || isSomeChar!T)
-//{
-//    char[T.sizeof * 8] res;
-//    enum size_t one = 1;
-//    foreach(size_t i; 0 .. T.sizeof * 8) {
-//        res[T.sizeof * 8 - i - 1] = (val & (one << i)) ? '1' : '0';
-//    }
-//    return res;
-//}
 const(char)[11] fastHash(size_t val) @nogc pure nothrow
 {
     char[11] res;
