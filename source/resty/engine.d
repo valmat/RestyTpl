@@ -1,27 +1,13 @@
 module resty.engine;
 
-import std.conv   : to;
-import std.stdio;
-import std.range;
-import std.algorithm;
-import std.array;
-import std.typecons;
-import std.string;
-import std.traits;
-import std.math;
-import std.file : timeLastModified, exists;
+//import std.stdio;
+import std.range  : front, empty;
+import std.file   : timeLastModified, exists;
 import std.stdint : uint32_t;
-
-import std.traits  : isIntegral, isSomeChar, isBoolean;
-import std.meta    : allSatisfy;
-
-
-import luad.all;
-import luad.lmodule;
-import luad.lfunction;
-import luad.conversions.functions;
-
-import resty.view;
+import std.traits : isIntegral, isSomeChar, isBoolean;
+import std.meta   : allSatisfy;
+import luad.all   : LuaState, LuaFunction;
+import resty.view : View;
 
 struct RestyOptons
 {
@@ -47,6 +33,8 @@ struct RestyOptons
     string resty_lua_lib;
 }
 
+enum string libSrcFileName = "deps/resty.p.luac";
+
 final class Resty
 {
 private:
@@ -66,10 +54,9 @@ public:
         _lua = new LuaState;
         _lua.openLibs();
         
-        enum libSrc = import("deps/resty.p.luac");
         _lua["template"] = opts.resty_lua_lib.length ?
             _lua.loadFile(opts.resty_lua_lib)(opts.isSafe).front :
-            _lua.loadBuffer(import("deps/resty.p.luac"))(opts.isSafe).front;
+            _lua.loadBuffer(import(libSrcFileName))(opts.isSafe).front;
 
         _tplDir = opts.tplDir.fixDir();
         _cplDir = opts.cplDir.fixDir();
@@ -203,7 +190,6 @@ public:
     }
 }
 
-
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // +cache & +precomple & -checkChanges
 final class RestyCachePrecmpCompiler : IRestyCompiler
@@ -262,8 +248,6 @@ public:
         return (*vp).view;
     }
 }
-
-
 
 // Just compiles templates and caches result to internal memory
 // +cache & -precomple & -checkChanges
