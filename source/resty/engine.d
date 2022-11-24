@@ -65,7 +65,6 @@ RestyCacheCompiler
 // Precompiles templates and stores them to cplDir
 // With check source file changes
 // -cache & +precomple & +checkChanges
-//...
 RestyPrecmpCkChngCompiler
 
 // Precompiles templates and stores them to cplDir
@@ -172,15 +171,16 @@ private:
 public:
     override View compile(string fileName)
     {
-        uint32_t lm = lmFileTime(fileName);
-        string key = fileName[_tplDir.length .. $];
-        auto vp = key in _cache;
+        uint32_t lm  = lmFileTime(fileName);
+        string   key = fileName[_tplDir.length .. $];
+        auto     vp  = key in _cache;
 
         if((vp is null) || ((*vp).lm < lm)) {
             string cplName = _cplDir ~ key ~ _cplSfx;
+            uint32_t lm_cpl  = cplName.exists ? lmFileTime(cplName) : 0;
 
             View view;
-            if(!cplName.exists || ((vp !is null) && ((*vp).lm < lm))  ) {
+            if((lm_cpl < lm) || ((vp !is null) && ((*vp).lm < lm))  ) {
                 view = View(_compiler(fileName).front().fun());
                 view.dump(cplName);
             } else {
@@ -193,6 +193,7 @@ public:
         return (*vp).view;
     }
 }
+
 
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // +cache & +precomple & -checkChanges
@@ -284,7 +285,6 @@ public:
 // Precompiles templates and stores them to cplDir
 // With check source file changes
 // -cache & +precomple & +checkChanges
-//...
 final class RestyPrecmpCkChngCompiler : IRestyCompiler
 {
     mixin PrecompCompilerTrait;
