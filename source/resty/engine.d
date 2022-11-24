@@ -285,6 +285,24 @@ public:
 // With check source file changes
 // -cache & +precomple & +checkChanges
 //...
+final class RestyPrecmpCkChngCompiler : IRestyCompiler
+{
+    mixin PrecompCompilerTrait;
+public:
+
+    View compile(string fileName)
+    {
+        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
+        uint32_t lm     = lmFileTime(fileName);
+        uint32_t lm_cpl = cplName.exists ? lmFileTime(cplName) : 0;
+        if(lm > lm_cpl) {
+            auto view = View(_compiler(fileName).front().fun());
+            view.dump(cplName);
+            return view;
+        }
+        return View(_compiler(cplName).front().fun());
+    }
+}
 
 // Precompiles templates and stores them to cplDir
 // -cache & +precomple & -checkChanges
