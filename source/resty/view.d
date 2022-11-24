@@ -56,30 +56,25 @@ const(char)[11] threadHash() nothrow
 {
     size_t procID  = thisProcessID();
     size_t thrdID  = thisThreadID();
-    size_t thrHash = size_t.max ^ ((procID << 46) | thrdID);
     return fastHash( size_t.max ^ ((procID << 46) | thrdID) );
 }
 
-char[64] binstr(size_t val) @nogc pure nothrow
-{
-    char[64] res;
-    enum size_t one = 1;
-    foreach(size_t i; 0 .. 64) {
-        res[64 - i - 1] = (val & (one << i)) ? '1' : '0';
-    }
-    return res;
-}
+//char[64] binstr(size_t val) @nogc pure nothrow
+//{
+//    char[64] res;
+//    enum size_t one = 1;
+//    foreach(size_t i; 0 .. 64) {
+//        res[64 - i - 1] = (val & (one << i)) ? '1' : '0';
+//    }
+//    return res;
+//}
 const(char)[11] fastHash(size_t val) @nogc pure nothrow
 {
     char[11] res;
     enum size_t one = size_t.max >> 58;
-
-    //writeln( binstr( val  ), "\t" , val);
-
     foreach(size_t i; 0 .. 11) {
         size_t shift = i * 6;
         size_t index = ((one << shift) & val) >> shift;
-        //writeln( binstr( index  ), "\t" , index, "\t", index._i2c());
         res[i] = index._i2c();
     }
     return res;
