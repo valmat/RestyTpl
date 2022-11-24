@@ -43,38 +43,39 @@ struct RestyOptons
     string resty_lua_lib;
 }
 
-////////////////////////////////////////////
+/*///////////////////////////////////////////
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // With check source file changes
 // +cache & +precomple & +checkChanges
-PrecompCacheChChCompiler
+RestyCachePrecmpCkChngCompiler
 
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // +cache & +precomple & -checkChanges
-PrecompCacheCompiler
+RestyCachePrecmpCompiler
 
 // Compiles templates and caches result to internal memory
 // With check source file changes
 // +cache & -precomple & +checkChanges
-CacheChChCompiler
+RestyCacheCkChngCompiler
 
 // Just compiles templates and caches result to internal memory
 // +cache & -precomple & -checkChanges
-CacheCompiler
+RestyCacheCompiler
 
-
+// Precompiles templates and stores them to cplDir
+// With check source file changes
 // -cache & +precomple & +checkChanges
-
+//...
+RestyPrecmpCkChngCompiler
 
 // Precompiles templates and stores them to cplDir
 // -cache & +precomple & -checkChanges
-PrecompCompiler
+RestyPrecmpCompiler
 
 // Just compiles template. Nothing else.
 // -cache & -precomple & +-checkChanges
-SimpleCompiler
-
-////////////////////////////////////////////
+RestyCompiler
+///////////////////////////////////////////*/
 
 final class Resty
 {
@@ -107,8 +108,8 @@ public:
         LuaFunction file_compiler = _lua.loadBuffer(`return template.compile_file`)().front().fun();
         
         _compiler = opts.cache ?
-            cast(IRestyCompiler)(new CacheCompiler(file_compiler)) :
-            cast(IRestyCompiler)(new SimpleCompiler(file_compiler));
+            cast(IRestyCompiler)(new RestyCacheCompiler(file_compiler)) :
+            cast(IRestyCompiler)(new RestyCompiler(file_compiler));
 
     //cache
     //precomple
@@ -163,7 +164,7 @@ public:
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // With check source file changes
 // +cache & +precomple & +checkChanges
-final class PrecompCacheChChCompiler : IRestyCompiler
+final class RestyCachePrecmpCkChngCompiler : IRestyCompiler
 {
 private:
     TimedView[string] _cache;
@@ -195,7 +196,7 @@ public:
 
 // Precompiles templates stores them to cplDir and caches result to internal memory
 // +cache & +precomple & -checkChanges
-final class PrecompCacheCompiler : IRestyCompiler
+final class RestyCachePrecmpCompiler : IRestyCompiler
 {
 private:
     View[string] _cache;
@@ -224,72 +225,10 @@ public:
     }
 }
 
-
-// Just compiles template. Nothing else.
-final class SimpleCompiler : IRestyCompiler
-{
-private:
-    LuaFunction _compiler;
-
-public:
-    this(LuaFunction compiler)
-    {
-        _compiler = compiler;
-    }
-
-    View compile(string fileName)
-    {
-        return View(_compiler(fileName).front().fun());
-    }
-}
-
-// Precompiles templates and stores them to cplDir
-final class PrecompCompiler : IRestyCompiler
-{
-    mixin PrecompCompilerTrait;
-public:
-
-    View compile(string fileName)
-    {
-        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
-        if(cplName.exists) {
-            return View(_compiler(cplName).front().fun());
-        }
-        auto view = View(_compiler(fileName).front().fun());
-        view.dump(cplName);
-        return view;
-    }
-}
-
-// Just compiles templates and caches result to internal memory
-final class CacheCompiler : IRestyCompiler
-{
-private:
-    LuaFunction _compiler;
-    View[string] _cache;
-
-public:
-    this(LuaFunction compiler)
-    {
-        _compiler = compiler;
-    }
-
-    View compile(string fileName)
-    {
-        auto vp = fileName in _cache;
-        if(vp is null) {
-            auto view = View(_compiler(fileName).front().fun());
-            _cache[fileName] = view;
-            return view;
-        }
-        return *vp;
-    }
-}
-
-
 // Compiles templates and caches result to internal memory
 // With check source file changes
-final class CacheChChCompiler : IRestyCompiler
+// +cache & -precomple & +checkChanges
+final class RestyCacheCkChngCompiler : IRestyCompiler
 {
 private:
     LuaFunction _compiler;
@@ -313,6 +252,82 @@ public:
         return (*vp).view;
     }
 }
+
+
+
+// Just compiles templates and caches result to internal memory
+// +cache & -precomple & -checkChanges
+final class RestyCacheCompiler : IRestyCompiler
+{
+private:
+    LuaFunction _compiler;
+    View[string] _cache;
+
+public:
+    this(LuaFunction compiler)
+    {
+        _compiler = compiler;
+    }
+
+    View compile(string fileName)
+    {
+        auto vp = fileName in _cache;
+        if(vp is null) {
+            auto view = View(_compiler(fileName).front().fun());
+            _cache[fileName] = view;
+            return view;
+        }
+        return *vp;
+    }
+}
+
+// Precompiles templates and stores them to cplDir
+// With check source file changes
+// -cache & +precomple & +checkChanges
+//...
+
+// Precompiles templates and stores them to cplDir
+// -cache & +precomple & -checkChanges
+final class RestyPrecmpCompiler : IRestyCompiler
+{
+    mixin PrecompCompilerTrait;
+public:
+
+    View compile(string fileName)
+    {
+        string cplName = _cplDir ~ fileName[_tplDir.length .. $] ~ _cplSfx;
+        if(cplName.exists) {
+            return View(_compiler(cplName).front().fun());
+        }
+        auto view = View(_compiler(fileName).front().fun());
+        view.dump(cplName);
+        return view;
+    }
+}
+
+// Just compiles template. Nothing else.
+// -cache & -precomple & +-checkChanges
+final class RestyCompiler : IRestyCompiler
+{
+private:
+    LuaFunction _compiler;
+
+public:
+    this(LuaFunction compiler)
+    {
+        _compiler = compiler;
+    }
+
+    View compile(string fileName)
+    {
+        return View(_compiler(fileName).front().fun());
+    }
+}
+
+
+
+
+
 
 private:
 uint32_t lmFileTime(string fileName)
