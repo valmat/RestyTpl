@@ -5,7 +5,7 @@
     "homepage": "https://github.com/valmat/resty",
     "license": "MIT",
 	"dependencies": {
-		"luad": "~master"
+		"luad": "~valmat"
 	},
 	"targetType": "library"
 }
