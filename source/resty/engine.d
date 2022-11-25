@@ -123,6 +123,11 @@ public:
     {
         return View(_str_compiler(tpl).front().fun());
     }
+
+    void opIndexAssign(T, U...)(T value, U args)
+    {
+        _lua[args] = value;
+    }    
 }
 
 private:

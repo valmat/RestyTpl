@@ -53,7 +53,13 @@ void main()
 
         auto range1 = iota(1, 5).map!`a*a`;
 
+        string simple_meth(){return "SIMPLE_METH_OUT";}
+        Nullable!int voidptr;
+
     }
+
+    // Set global 
+    tplEngn["global_string"] = "GLOBAL_STRING";
 
     view(DataMsg3("Message from D 3", [11:"one", 22:"two", 33:"three"])).writeln;
 

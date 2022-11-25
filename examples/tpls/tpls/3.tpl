@@ -15,6 +15,8 @@ ________________
 values:
 {% for key, value in pairs(values) do %}
     {{key}} {{value}}
+    {*key*} {*value*}
+    {#~ key %} {{value}#}
 {% end %}
 
 
@@ -32,5 +34,11 @@ range1
 {% for value in iota2(1, 10, 1)()  do %}
    {{value}}
 {% end %}
+
+||{*message*}||
+||{*simple_meth*}||
+||{*voidptr*}||
+||{*global_string*}||
+
 
 \{\{qqq\}\}
