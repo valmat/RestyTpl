@@ -39,6 +39,8 @@ range1
 ||{*simple_meth*}||
 ||{*voidptr*}||
 ||{*global_string*}||
+||template_xX = {*template.xX*}||
+
 
 
 \{\{qqq\}\}

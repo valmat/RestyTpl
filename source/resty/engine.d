@@ -1,12 +1,12 @@
 module resty.engine;
 
-//import std.stdio;
+import std.stdio;
 import std.range  : front, empty;
 import std.file   : timeLastModified, exists;
 import std.stdint : uint32_t;
 import std.traits : isIntegral, isSomeChar, isBoolean;
 import std.meta   : allSatisfy;
-import luad.all   : LuaState, LuaFunction;
+import luad.all   : LuaState, LuaFunction, LuaTable;
 import resty.view : View;
 
 struct RestyOptons
@@ -57,6 +57,31 @@ public:
         _lua["template"] = opts.resty_lua_lib.length ?
             _lua.loadFile(opts.resty_lua_lib)(opts.isSafe).front :
             _lua.loadBuffer(import(libSrcFileName))(opts.isSafe).front;
+
+
+        auto tpl = _lua.get!LuaTable("template");
+
+        //auto tpl = _lua["template"];
+        //{
+        //    auto tbl = tpl.table();
+        //    tbl["xX"] = 1;
+        //    tbl.typeName().writeln;
+
+            
+        //    tbl["parse"] = (string view, bool plain) {
+        //        return "return 'return 5';";
+        //    };
+        //}
+        //tpl["parse"] = (string view, bool plain) {
+        //    return "return 'return 5';";
+        //};
+        //tpl.set("parse", (string view, bool plain) {
+        //    return "return 'HA HA HA';";
+        //});
+        tpl.typeName().writeln;
+        tpl.toString().writeln;
+
+
 
         _tplDir = opts.tplDir.fixDir();
         _cplDir = opts.cplDir.fixDir();
@@ -127,7 +152,7 @@ public:
     void opIndexAssign(T, U...)(T value, U args)
     {
         _lua[args] = value;
-    }    
+    }
 }
 
 private:

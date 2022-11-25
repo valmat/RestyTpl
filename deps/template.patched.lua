@@ -551,13 +551,13 @@ local function echo(...) for i=1,select("#", ...) do ___[#___+1] = tostring(sele
         end
         c[j] = "return layout and include(layout,setmetatable({view=table.concat(___),blocks=blocks},{__index=context})) or table.concat(___)" -- luacheck: ignore
         
-        print("============================================")
-        for index, value in ipairs(c)  do
-           -- print("----------------------------------")
-           print(value)
-           print("----------------------------------")
-        end
-        print("============================================")
+        -- print("============================================")
+        -- for index, value in ipairs(c)  do
+        --    -- print("----------------------------------")
+        --    print(value)
+        --    print("----------------------------------")
+        -- end
+        -- print("============================================")
 
         -- print(concat(c));
         return concat(c)
